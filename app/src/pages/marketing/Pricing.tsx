@@ -30,7 +30,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Calculator, DollarSign, Package, TrendingDown, Trash2, Plus } from 'lucide-react';
+import { Calculator, Package, TrendingDown, Trash2, Plus } from 'lucide-react';
 
 export function Pricing() {
   const { hasRole } = useAuth();
@@ -101,7 +101,6 @@ export function Pricing() {
 
       // Remove joined `products` object from payload if present (from edit mode)
       delete (payload as any).products;
-      delete (payload as any).id;
 
       if (editingId) {
         await pricingPackagesApi.update(editingId, payload as any);
@@ -118,7 +117,7 @@ export function Pricing() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
     if (window.confirm('Are you sure you want to potentially delete this package? (Soft delete)')) {
       try {
         // Soft delete logic usually
@@ -308,7 +307,7 @@ export function Pricing() {
                     <TableCell>{pkg.waste_paper_discount}%</TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {canManage && (
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(pkg.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete()}>
                           <Trash2 className="w-4 h-4 text-red-500" />
                         </Button>
                       )}

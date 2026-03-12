@@ -36,7 +36,6 @@ import { Plus, Search, MoreVertical, FileText, Building, Calendar, Eye, Send, Do
 export function Quotations() {
   const navigate = useNavigate();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [quotationPreview, setQuotationPreview] = useState<Quotation | null>(null);
@@ -57,13 +56,10 @@ export function Quotations() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const data = await quotationsApi.getAll();
       setQuotations(data);
     } catch (error) {
       console.error('Error fetching quotations:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

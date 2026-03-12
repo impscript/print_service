@@ -42,7 +42,6 @@ export function Sites() {
 
   const [sites, setSites] = useState<Site[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>(customerFilterId || 'all');
@@ -67,7 +66,6 @@ export function Sites() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const [sitesData, customersData] = await Promise.all([
         sitesApi.getAll(),
         customersApi.getAll()
@@ -76,8 +74,6 @@ export function Sites() {
       setCustomers(customersData);
     } catch (error) {
       console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

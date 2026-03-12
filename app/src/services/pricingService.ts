@@ -1,7 +1,6 @@
 import type { Database } from '@/types/database';
 
 type PricingPackage = Database['public']['Tables']['pricing_packages']['Row'];
-type PricingType = Database['public']['Enums']['pricing_type'];
 
 export interface PricingCalculationInput {
   pricingPackage: PricingPackage;

@@ -36,7 +36,6 @@ type UserRow = Database['public']['Tables']['users']['Row'];
 
 export function Users() {
     const [users, setUsers] = useState<UserRow[]>([]);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
 
     // Dialog
@@ -88,13 +87,10 @@ export function Users() {
 
     const fetchData = async () => {
         try {
-            setLoading(true);
             const data = await usersApi.getAll();
             setUsers(data);
         } catch (error) {
             console.error('Error fetching users:', error);
-        } finally {
-            setLoading(false);
         }
     };
 

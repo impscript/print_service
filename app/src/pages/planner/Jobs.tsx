@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import {
   jobsApi,
@@ -7,14 +6,8 @@ import {
 } from '@/services/api/jobs';
 import { customersApi, sitesApi } from '@/services/api/customers'; // leads.ts or customers.ts
 import { usersApi } from '@/services/api/users';
-import { productsApi } from '@/services/api/products'; // for machines? api/products.ts usually has machinesApi?
-// Checking products.ts earlier, it has inventoryItemsApi.
-// I need machinesApi. Let's check products.ts or if I need to use direct Supabase or new api.
-// Api jobs.ts has getAll which joins machines.
-// To select a machine in Dialog, I need to fetch machines.
-// Let's assume machinesApi exists in products.ts (inventoryItemsApi usually covers parts/machines).
-// If not, I'll restrict machine selection or add machinesApi.
-import { inventoryItemsApi as machinesApi } from '@/services/api/products'; // Assuming mapping
+// import { productsApi } from '@/services/api/products'; 
+// import { inventoryItemsApi as machinesApi } from '@/services/api/products'; 
 
 import { formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
@@ -44,7 +37,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Plus, Search, MoreVertical, Wrench, Calendar, User, Building, Edit, Eye, MapPin } from 'lucide-react';
+import { Plus, Search, MoreVertical, Wrench, User, Edit, MapPin } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,16 +47,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 
 export function Jobs() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true);
 
   // Master Data
   const [customers, setCustomers] = useState<any[]>([]);
   const [sites, setSites] = useState<any[]>([]);
   const [technicians, setTechnicians] = useState<any[]>([]);
-  const [machines, setMachines] = useState<any[]>([]); // All machines? Optimization needed for large DB
+  // const [machines, setMachines] = useState<any[]>([]); 
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -94,35 +86,24 @@ export function Jobs() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const [jobsData, customersData, sitesData, techData] = await Promise.all([
         jobsApi.getAll(),
         customersApi.getAll(),
         sitesApi.getAll(),
-        usersApi.getByRole('technician') // or 'all' and filter? 
+        usersApi.getByRole('technician') 
       ]);
       setJobs(jobsData);
       setCustomers(customersData);
       setSites(sitesData);
       setTechnicians(techData);
-      // We assume machines are fetched per customer/site in Dialog for performance? 
-      // Or just fetch all if small. Let's start with empty machines and fetch when customer selected?
-      // For now, let's fetch all machines via api if possible.
-      // const machinesData = await machinesApi.getAll(); 
-      // setMachines(machinesData);
     } catch (error) {
       console.error('Error fetching data:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   // Helper to fetch machines for site
-  const fetchMachinesForSite = async (siteId: string) => {
-    // Need an API for this. machinesApi.getBySite(siteId)
-    // If not exists, maybe just set empty for now.
-    // This is a refinement.
-  };
+  // const fetchMachinesForSite = async (siteId: string) => {
+  // };
 
   const handleOpenDialog = (job?: Job) => {
     if (job) {
@@ -168,7 +149,15 @@ export function Jobs() {
         await jobsApi.update(editingJob.id, payload);
       } else {
         await jobsApi.create({
-          ...payload,
+          description: payload.description || '',
+          type: payload.type || 'maintenance',
+          status: payload.status || 'pending',
+          priority: payload.priority || 'normal',
+          customer_id: payload.customer_id,
+          site_id: payload.site_id,
+          machine_id: payload.machine_id,
+          assigned_to: payload.assigned_to,
+          scheduled_date: payload.scheduled_date,
           created_by: user?.id || 'system'
         });
       }

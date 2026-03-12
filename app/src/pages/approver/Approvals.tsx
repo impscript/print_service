@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { quotationsApi, type Quotation } from '@/services/api/quotations';
-import { contractsApi, type Contract } from '@/services/api/contracts';
+import { quotationsApi } from '@/services/api/quotations';
+import { contractsApi } from '@/services/api/contracts';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

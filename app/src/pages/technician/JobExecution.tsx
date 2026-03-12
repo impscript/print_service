@@ -7,15 +7,14 @@ import {
     type Job,
     type JobSheet
 } from '@/services/api/jobs';
-import { formatDate, getStatusColor, getStatusLabel, formatCurrency } from '@/lib/utils';
+import { getStatusColor, getStatusLabel } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import { MapPin, Phone, User, Play, CheckCircle, Package, Camera, PenTool, ArrowLeft, Building } from 'lucide-react';
+import { MapPin, Play, CheckCircle, Package, ArrowLeft, Building } from 'lucide-react';
 
 export function JobExecution() {
     const { id } = useParams();

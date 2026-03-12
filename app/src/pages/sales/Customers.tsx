@@ -46,7 +46,6 @@ import { Plus, Search, MapPin, Building, Edit, User } from 'lucide-react';
 
 export function Customers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Dialog State (Customer Details/Edit)
@@ -68,13 +67,10 @@ export function Customers() {
 
   const fetchCustomers = async () => {
     try {
-      setLoading(true);
       const data = await customersApi.getWithSites();
       setCustomers(data);
     } catch (error) {
       console.error('Error fetching customers:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -10,7 +10,7 @@ import {
   type InventoryItemInsert,
   type Product
 } from '@/services/api/products';
-import { formatDate, getStatusColor } from '@/lib/utils';
+import { getStatusColor } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,7 +54,6 @@ export function Inventory() {
   const [machines, setMachines] = useState<Machine[]>([]);
   const [parts, setParts] = useState<InventoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -88,7 +87,6 @@ export function Inventory() {
 
   const fetchData = async () => {
     try {
-      setLoading(true);
       const [machinesData, partsData, productsData] = await Promise.all([
         machinesApi.getAll(),
         inventoryItemsApi.getAll(),
@@ -99,8 +97,6 @@ export function Inventory() {
       setProducts(productsData);
     } catch (error) {
       console.error('Error fetching inventory:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
