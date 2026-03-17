@@ -1101,6 +1101,7 @@ export type Database = {
           base_monthly_fee: number | null
           click_rate_black: number | null
           click_rate_color: number | null
+          contract_period: number | null
           created_at: string | null
           description: string | null
           excess_rate_black: number | null
@@ -1110,6 +1111,7 @@ export type Database = {
           id: string
           includes_paper: boolean | null
           is_active: boolean | null
+          machine_condition: string | null
           min_guarantee_price: number | null
           min_guarantee_volume: number | null
           name: string
@@ -1122,6 +1124,7 @@ export type Database = {
           base_monthly_fee?: number | null
           click_rate_black?: number | null
           click_rate_color?: number | null
+          contract_period?: number | null
           created_at?: string | null
           description?: string | null
           excess_rate_black?: number | null
@@ -1131,6 +1134,7 @@ export type Database = {
           id?: string
           includes_paper?: boolean | null
           is_active?: boolean | null
+          machine_condition?: string | null
           min_guarantee_price?: number | null
           min_guarantee_volume?: number | null
           name: string
@@ -1143,6 +1147,7 @@ export type Database = {
           base_monthly_fee?: number | null
           click_rate_black?: number | null
           click_rate_color?: number | null
+          contract_period?: number | null
           created_at?: string | null
           description?: string | null
           excess_rate_black?: number | null
@@ -1152,6 +1157,7 @@ export type Database = {
           id?: string
           includes_paper?: boolean | null
           is_active?: boolean | null
+          machine_condition?: string | null
           min_guarantee_price?: number | null
           min_guarantee_volume?: number | null
           name?: string
@@ -1163,6 +1169,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "pricing_packages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_attachments: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_size: number | null
+          file_type: string | null
+          file_url: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_type?: string | null
+          file_url?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_attachments_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
@@ -1342,6 +1386,7 @@ export type Database = {
           updated_at: string | null
           valid_until: string | null
           vat: number | null
+          vat_included: boolean | null
         }
         Insert: {
           approved_at?: string | null
@@ -1369,6 +1414,7 @@ export type Database = {
           updated_at?: string | null
           valid_until?: string | null
           vat?: number | null
+          vat_included?: boolean | null
         }
         Update: {
           approved_at?: string | null
@@ -1396,6 +1442,7 @@ export type Database = {
           updated_at?: string | null
           valid_until?: string | null
           vat?: number | null
+          vat_included?: boolean | null
         }
         Relationships: [
           {

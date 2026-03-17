@@ -7,6 +7,8 @@ type ProductInsert = Tables['products']['Insert'];
 type Machine = Tables['machines']['Row'];
 type MachineInsert = Tables['machines']['Insert'];
 type MachineUpdate = Tables['machines']['Update'];
+type ProductAttachment = Tables['product_attachments']['Row'];
+type ProductAttachmentInsert = Tables['product_attachments']['Insert'];
 type PricingPackage = Tables['pricing_packages']['Row'];
 type PricingPackageInsert = Tables['pricing_packages']['Insert'];
 type PricingPackageUpdate = Tables['pricing_packages']['Update'];
@@ -24,7 +26,6 @@ export const productsApi = {
         const { data, error } = await supabase
             .from('products')
             .select('*')
-            .eq('is_active', true)
             .order('brand')
             .order('model');
 
@@ -90,6 +91,120 @@ export const productsApi = {
 
         if (error) throw error;
         return data;
+    },
+};
+
+// =====================================================
+// PRODUCT FILES API (Storage)
+// =====================================================
+
+export const productFilesApi = {
+    // Upload product image and update image_url
+    async uploadImage(productId: string, file: File) {
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `images/${productId}/${Date.now()}_${sanitizedName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('product-files')
+            .upload(fileName, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+            .from('product-files')
+            .getPublicUrl(fileName);
+
+        // Update the product's image_url
+        const { error: updateError } = await supabase
+            .from('products')
+            .update({ image_url: urlData.publicUrl })
+            .eq('id', productId);
+
+        if (updateError) throw updateError;
+
+        return urlData.publicUrl;
+    },
+
+    // Delete product image from storage
+    async deleteImage(productId: string, imageUrl: string) {
+        // Extract path from URL
+        const path = imageUrl.split('/product-files/')[1];
+        if (path) {
+            await supabase.storage.from('product-files').remove([path]);
+        }
+        // Clear image_url in product
+        await supabase
+            .from('products')
+            .update({ image_url: null })
+            .eq('id', productId);
+    },
+};
+
+// =====================================================
+// PRODUCT ATTACHMENTS API
+// =====================================================
+
+export const productAttachmentsApi = {
+    // Get all attachments for a product
+    async getByProduct(productId: string) {
+        const { data, error } = await supabase
+            .from('product_attachments')
+            .select('*')
+            .eq('product_id', productId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Upload and create attachment
+    async upload(productId: string, file: File) {
+        const fileExt = file.name.split('.').pop() || '';
+        // Sanitize filename to prevent 400 errors with non-ASCII chars (like Thai) in Supabase Storage
+        const sanitizedName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        const fileName = `specs/${productId}/${Date.now()}_${sanitizedName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('product-files')
+            .upload(fileName, file);
+
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage
+            .from('product-files')
+            .getPublicUrl(fileName);
+
+        const attachment: ProductAttachmentInsert = {
+            product_id: productId,
+            file_name: file.name,
+            file_url: urlData.publicUrl,
+            file_type: file.type || fileExt || 'unknown',
+            file_size: file.size,
+        };
+
+        const { data, error } = await supabase
+            .from('product_attachments')
+            .insert(attachment)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    },
+
+    // Delete attachment (storage + DB)
+    async delete(id: string, fileUrl: string) {
+        const path = fileUrl.split('/product-files/')[1];
+        if (path) {
+            await supabase.storage.from('product-files').remove([path]);
+        }
+
+        const { error } = await supabase
+            .from('product_attachments')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
     },
 };
 
@@ -232,7 +347,6 @@ export const pricingPackagesApi = {
         *,
         products (brand, model, type)
       `)
-            .eq('is_active', true)
             .order('name');
 
         if (error) throw error;
@@ -247,8 +361,7 @@ export const pricingPackagesApi = {
         *,
         products (brand, model, type)
       `)
-            .eq('pricing_type', pricingType)
-            .eq('is_active', true);
+            .eq('pricing_type', pricingType);
 
         if (error) throw error;
         return data;
@@ -259,8 +372,7 @@ export const pricingPackagesApi = {
         const { data, error } = await supabase
             .from('pricing_packages')
             .select('*')
-            .eq('product_id', productId)
-            .eq('is_active', true);
+            .eq('product_id', productId);
 
         if (error) throw error;
         return data;
@@ -363,4 +475,5 @@ export const inventoryItemsApi = {
     },
 };
 
-export type { Product, ProductInsert, Machine, MachineInsert, MachineUpdate, PricingPackage, PricingPackageInsert, PricingPackageUpdate, InventoryItem, InventoryItemInsert, InventoryItemUpdate };
+export type { Product, ProductInsert, ProductAttachment, ProductAttachmentInsert, Machine, MachineInsert, MachineUpdate, PricingPackage, PricingPackageInsert, PricingPackageUpdate, InventoryItem, InventoryItemInsert, InventoryItemUpdate };
+

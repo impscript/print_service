@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, X } from "lucide-react";
-import { formatCurrency, formatDate, formatNumber, getCustomerTypeLabel } from "@/lib/utils";
+import { formatDate, getCustomerTypeLabel } from "@/lib/utils";
 import type { Database } from "@/types/database";
 
 type Quotation = Database['public']['Tables']['quotations']['Row'];
@@ -71,12 +71,6 @@ export function QuotationPreview({ quotation, isOpen, onClose, customTerms }: Qu
     const leadType = quotation.leads?.type;
     const projectName = leadType === 'print_service' ? 'Double A Copy Point' :
         leadType === 'fast_print' ? 'Double A Fastprint' : '';
-
-    const subtotal = items.reduce((acc, item) => acc + (item.total_price || 0), 0);
-    const discount = Number(quotation.discount || 0);
-    const taxable = Math.max(0, subtotal - discount);
-    const vat = taxable * 0.07;
-    const total = taxable + vat;
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -175,40 +169,41 @@ export function QuotationPreview({ quotation, isOpen, onClose, customTerms }: Qu
                     <table className="w-full border-collapse border border-black text-[11px] mb-2">
                         <thead className="text-center bg-gray-50">
                             <tr>
-                                <th className="border border-black p-1 w-10">ลำดับที่</th>
-                                <th className="border border-black p-1">รายละเอียดสินค้า</th>
-                                <th className="border border-black p-1 w-28">ปริมาณงานพิมพ์<br />(แผ่น/3ปี)</th>
-                                <th className="border border-black p-1 w-28">อัตราค่าบริการ<br />(บาท/แผ่น)</th>
-                                <th className="border border-black p-1 w-32">มูลค่า<br />(บาท)</th>
+                                <th className="border border-black p-1 w-10">ลำดับ</th>
+                                <th className="border border-black p-1 text-left px-2">รายการ</th>
+                                <th className="border border-black p-1 w-24">ประเภทเครื่อง</th>
+                                <th className="border border-black p-1 w-24">ระยะเวลาสัญญา</th>
+                                <th className="border border-black p-1 w-24">ความเร็ว<br />(แผ่น/นาที)</th>
                             </tr>
                         </thead>
                         <tbody className="text-center align-top">
                             {items.map((item, index) => {
                                 const products = item.products || {} as Product;
                                 const isMachine = !!products.brand && !!products.speed_ppm;
+                                const pkg = quotation.pricing_packages || quotation.package_id ? (quotation as any).pricing_packages : null;
 
                                 return (
-                                    <tr>
+                                    <tr key={index}>
                                         <td className="border border-black p-1 px-2 align-middle">{index + 1}</td>
                                         <td className="border border-black p-1 px-2 text-left">
                                             {isMachine ? (
                                                 <div className="leading-tight">
-                                                    <div>เครื่องถ่ายเอกสารยี่ห้อ {products.brand || '-'} เครื่องใหม่ จำนวน {item.quantity || 1} เครื่อง</div>
-                                                    <div>รุ่น {products.model || '-'} {products.color_type === 'Color' ? 'สี-ขาวดำ' : 'ขาว-ดำ'} {products.paper_size || '-'} ความเร็ว {products.speed_ppm || '-'} แผ่น</div>
-                                                    <div>Copy+Print+Scan</div>
+                                                    <div>{products.brand || '-'} {products.model || '-'}</div>
+                                                    <div>{products.color_type === 'Color' ? '(สี-ขาวดำ)' : '(ขาว-ดำ)'} {products.paper_size || '-'}</div>
+                                                    {item.quantity && item.quantity > 1 && <div className="mt-1 font-bold">จำนวน {item.quantity} เครื่อง</div>}
                                                 </div>
                                             ) : (
                                                 <div>{products.model || products.brand || '-'}</div>
                                             )}
                                         </td>
                                         <td className="border border-black p-1 px-2 align-middle">
-                                            {isMachine ? '-' : (item.quantity > 1 ? formatNumber(item.quantity) : '-')}
+                                            {isMachine && pkg ? (pkg.machine_condition || 'เครื่องใหม่') : '-'}
                                         </td>
                                         <td className="border border-black p-1 px-2 align-middle">
-                                            {isMachine ? '-' : (item.unit_price ? item.unit_price.toFixed(2) : '-')}
+                                            {isMachine && pkg ? `${pkg.contract_period || 36} เดือน` : '-'}
                                         </td>
-                                        <td className="border border-black p-1 px-2 text-right align-middle">
-                                            {!item.total_price ? '-' : formatCurrency(item.total_price)}
+                                        <td className="border border-black p-1 px-2 align-middle">
+                                            {isMachine ? (products.speed_ppm || '-') : '-'}
                                         </td>
                                     </tr>
                                 );
@@ -225,19 +220,7 @@ export function QuotationPreview({ quotation, isOpen, onClose, customTerms }: Qu
                                 </tr>
                             ))}
 
-                            {/* Summary Rows */}
-                            <tr>
-                                <td colSpan={4} className="border border-black p-1 px-2 text-right font-bold w-[70%]">จำนวนเงินรวม</td>
-                                <td className="border border-black p-1 px-2 bg-gray-50 text-right w-[30%]">{formatCurrency(subtotal)}</td>
-                            </tr>
-                            <tr>
-                                <td colSpan={4} className="border border-black p-1 px-2 text-right font-bold w-[70%]">ภาษีมูลค่าเพิ่ม 7%</td>
-                                <td className="border border-black p-1 px-2 bg-gray-50 text-right w-[30%]">{formatCurrency(vat)}</td>
-                            </tr>
-                            <tr>
-                                <td colSpan={4} className="border border-black p-1 px-2 text-right font-bold w-[70%]">จำนวนเงินรวมทั้งสิ้น (รวมภาษีมูลค่าเพิ่ม 7%)</td>
-                                <td className="border border-black p-1 px-2 bg-gray-50 text-right font-bold w-[30%]">{formatCurrency(total)}</td>
-                            </tr>
+                            {/* Summary Rows removed as per user request to only show package details */}
                         </tbody>
                     </table>
 

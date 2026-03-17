@@ -51,68 +51,123 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch user profile from users table
+  // Fetch user profile from users table with a strict timeout
   const fetchUserProfile = async (authUser: SupabaseUser | null): Promise<UserProfile | null> => {
     if (!authUser) return null;
 
-    // Try to find by auth_id first
-    let { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('auth_id', authUser.id)
-      .single();
+    // Create a timeout promise that rejects after 8 seconds
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Profile fetch timeout')), 8000);
+    });
 
-    // If not found by auth_id, try by email (for initial linking)
-    if (error || !data) {
-      const { data: dataByEmail, error: emailError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('email', authUser.email!)
-        .single();
+    const fetchPromise = async () => {
+      try {
+        // Try to find by auth_id first
+        let { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('auth_id', authUser.id)
+          .single();
 
-      if (emailError || !dataByEmail) {
-        console.error('User profile not found:', error || emailError);
+        // If not found by auth_id, try by email (for initial linking)
+        if (error || !data) {
+          const { data: dataByEmail, error: emailError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', authUser.email!)
+            .single();
+
+          if (emailError || !dataByEmail) {
+            console.error('User profile not found:', error || emailError);
+            return null;
+          }
+
+          // Link auth_id to user profile
+          await supabase
+            .from('users')
+            .update({ auth_id: authUser.id })
+            .eq('id', dataByEmail.id);
+
+          data = dataByEmail;
+        }
+
+        return data as UserProfile;
+      } catch (err) {
+        console.error('Error fetching user profile query:', err);
         return null;
       }
+    };
 
-      // Link auth_id to user profile
-      await supabase
-        .from('users')
-        .update({ auth_id: authUser.id })
-        .eq('id', dataByEmail.id);
-
-      data = dataByEmail;
+    try {
+      // Race the actual fetch against the 8-second timeout
+      const result = await Promise.race([fetchPromise(), timeoutPromise]);
+      return result;
+    } catch (err) {
+      console.error('fetchUserProfile error/timeout:', err);
+      return null;
     }
-
-    return data as UserProfile;
   };
 
   // Listen to auth state changes
   useEffect(() => {
+    let mounted = true;
+
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       if (session?.user) {
-        fetchUserProfile(session.user).then(setUser);
+        const authUser = session.user;
+        fetchUserProfile(authUser).then((profile) => {
+          if (mounted) {
+            setUser(profile);
+            setIsLoading(false);
+          }
+        });
+      } else {
+        if (mounted) setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     // Listen for auth changes
+    // IMPORTANT: Do NOT make async Supabase REST calls directly inside this callback.
+    // The Supabase client can deadlock if queries are made before the auth callback completes.
+    // Use setTimeout(0) to defer the work to the next macrotask.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        if (!mounted) return;
+
+        // Synchronously update session only
         setSession(session);
+
+        // Defer async profile fetch to next tick to avoid Supabase client deadlock
         if (session?.user) {
-          const profile = await fetchUserProfile(session.user);
-          setUser(profile);
+          const authUser = session.user;
+          setTimeout(async () => {
+            if (!mounted) return;
+            try {
+              const profile = await fetchUserProfile(authUser);
+              if (mounted) {
+                setUser(profile);
+                setIsLoading(false);
+              }
+            } catch (err) {
+              console.error('Error in deferred auth handler:', err);
+              if (mounted) {
+                setUser(null);
+                setIsLoading(false);
+              }
+            }
+          }, 0);
         } else {
           setUser(null);
+          setIsLoading(false);
         }
-        setIsLoading(false);
       }
     );
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -121,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -138,27 +193,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (!profileError && userProfile) {
             setUser(userProfile as UserProfile);
+            setIsLoading(false);
             return { success: true };
           }
         }
-
+        setIsLoading(false);
         return { success: false, error: error.message };
       }
 
-      if (data.user) {
-        const profile = await fetchUserProfile(data.user);
-        if (!profile) {
-          return { success: false, error: 'User profile not found' };
+      // Auth succeeded — fetch profile directly instead of relying on onAuthStateChange
+      // This prevents race conditions and avoids the deadlock in the auth callback
+      if (authData?.user) {
+        setSession(authData.session);
+        const profile = await fetchUserProfile(authData.user);
+        if (profile) {
+          setUser(profile);
+          setIsLoading(false);
+          return { success: true };
+        } else {
+          setIsLoading(false);
+          return { success: false, error: 'ไม่พบข้อมูลผู้ใช้ในระบบ กรุณาติดต่อผู้ดูแลระบบ' };
         }
-        setUser(profile);
-        return { success: true };
       }
 
-      return { success: false, error: 'Login failed' };
-    } catch (err: any) {
-      return { success: false, error: err.message };
-    } finally {
       setIsLoading(false);
+      return { success: true };
+    } catch (err: any) {
+      setIsLoading(false);
+      return { success: false, error: err.message };
     }
   }, []);
 

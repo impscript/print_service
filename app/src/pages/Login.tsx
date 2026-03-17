@@ -29,16 +29,31 @@ export function Login() {
     setError('');
     setIsLoading(true);
 
+    // Safety timeout: if login takes longer than 12s total, abort the visual loading state.
+    // This prevents the button from spinning forever if the network drops or Supabase hangs.
+    const timeoutId = setTimeout(() => {
+      setIsLoading((prev) => {
+        if (prev) {
+          setError('การเชื่อมต่อใช้เวลานานผิดปกติ กรุณาลองใหม่อีกครั้ง (Timeout)');
+        }
+        return false;
+      });
+    }, 12000);
+
     try {
-      const success = await login(email, password);
-      if (success) {
-        navigate('/');
-      } else {
-        setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      const result = await login(email, password);
+      clearTimeout(timeoutId);
+      
+      if (!result.success) {
+        setError(result.error || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+        setIsLoading(false);
       }
+      // On success, the useEffect listening to isAuthenticated will handle navigation.
+      // We purposefully don't set isLoading(false) on success so the button stays spinning
+      // until the navigation actually happens.
     } catch (err) {
+      clearTimeout(timeoutId);
       setError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-    } finally {
       setIsLoading(false);
     }
   };

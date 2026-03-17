@@ -20,8 +20,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-// import { Label } from '@/components/ui/label'; // Label is used
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Select,
     SelectContent,
@@ -79,6 +79,7 @@ export function QuotationBuilder() {
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +30 days
         discount: 0,
         notes: '1. รายละเอียดเครื่องตามเอกสารแนบ',
+        vat_included: true,
     });
 
     const [bookingData, setBookingData] = useState<Partial<CustomerBookingInsert>>({
@@ -150,6 +151,7 @@ export function QuotationBuilder() {
                 status: data.status,
                 discount: data.discount,
                 notes: data.notes || '1. รายละเอียดเครื่องตามเอกสารแนบ',
+                vat_included: data.vat_included ?? true,
                 rejection_reason: (data as any).rejection_reason,
             });
             // Load saved terms or fallback to template settings
@@ -254,7 +256,7 @@ export function QuotationBuilder() {
     const subtotal = items.reduce((acc, item) => acc + (item.total_price || 0), 0);
     const discount = Number(formData.discount || 0);
     const taxable = Math.max(0, subtotal - discount);
-    const vat = taxable * 0.07;
+    const vat = formData.vat_included ? taxable * 0.07 : 0;
     const total = taxable + vat;
 
     const handleSave = async () => {
@@ -528,10 +530,20 @@ export function QuotationBuilder() {
                             <span>Discount</span>
                             <Input type="number" className="w-24 text-right h-8" value={formData.discount ?? 0} onChange={e => setFormData({ ...formData, discount: Number(e.target.value) })} />
                         </div>
-                        <div className="flex justify-between">
-                            <span>VAT (7%)</span>
-                            <span>{formatCurrency(vat)}</span>
+                        <div className="flex justify-between items-center bg-gray-50 p-2 rounded-md border">
+                            <Label htmlFor="vat-toggle" className="cursor-pointer">Include VAT (7%)</Label>
+                            <Switch 
+                                id="vat-toggle" 
+                                checked={formData.vat_included ?? true} 
+                                onCheckedChange={(checked) => setFormData({ ...formData, vat_included: checked })} 
+                            />
                         </div>
+                        {formData.vat_included && (
+                            <div className="flex justify-between">
+                                <span>VAT (7%)</span>
+                                <span>{formatCurrency(vat)}</span>
+                            </div>
+                        )}
                         <div className="border-t pt-4 flex justify-between font-bold text-lg">
                             <span>Total</span>
                             <span>{formatCurrency(total)}</span>
@@ -616,11 +628,16 @@ export function QuotationBuilder() {
                             if (!pkg) return null;
                             return (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div>Base Fee: {formatCurrency(pkg.base_monthly_fee)}</div>
-                                    <div>Click (Bk): {pkg.click_rate_black}</div>
-                                    <div>Click (Col): {pkg.click_rate_color}</div>
-                                    <div>Excess (Bk): {pkg.excess_rate_black}</div>
-                                    <div>Excess (Col): {pkg.excess_rate_color}</div>
+                                    <div className="col-span-2 text-blue-900 font-semibold mb-1">
+                                        Condition: {pkg.machine_condition || 'เครื่องใหม่'} | Duration: {pkg.contract_period || 36} เดือน
+                                    </div>
+                                    <div className="col-span-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>Base Fee: {formatCurrency(pkg.base_monthly_fee)}</div>
+                                        <div>Click (Bk): {pkg.click_rate_black}</div>
+                                        <div>Click (Col): {pkg.click_rate_color}</div>
+                                        <div>Excess (Bk): {pkg.excess_rate_black}</div>
+                                        <div>Excess (Col): {pkg.excess_rate_color}</div>
+                                    </div>
                                 </div>
                             )
                         })()}

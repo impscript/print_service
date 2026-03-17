@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
 import { Calculator, Package, TrendingDown, Trash2, Plus } from 'lucide-react';
 
 export function Pricing() {
@@ -43,6 +44,7 @@ export function Pricing() {
   const [volumeBlack, setVolumeBlack] = useState<number>(5000);
   const [volumeColor, setVolumeColor] = useState<number>(0);
   const [calculationResult, setCalculationResult] = useState<PricingCalculationResult | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Form State
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -50,6 +52,8 @@ export function Pricing() {
     pricing_type: 'actual_usage',
     waste_paper_discount: 2,
     is_active: true,
+    machine_condition: 'เครื่องใหม่',
+    contract_period: 36,
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -147,7 +151,7 @@ export function Pricing() {
         </div>
         {canManage && (
           <Button onClick={() => {
-            setFormData({ pricing_type: 'actual_usage', waste_paper_discount: 2, is_active: true });
+            setFormData({ pricing_type: 'actual_usage', waste_paper_discount: 2, is_active: true, machine_condition: 'เครื่องใหม่', contract_period: 36 });
             setEditingId(null);
             setIsDialogOpen(true);
           }} className="gap-2">
@@ -243,8 +247,22 @@ export function Pricing() {
 
       {/* Package List */}
       <Card>
-        <CardHeader>
-          <CardTitle>All Packages ({packages.length})</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <div className="space-y-1">
+            <CardTitle>All Packages ({packages.filter(p => showInactive || p.is_active !== false).length})</CardTitle>
+          </div>
+          {canManage && (
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={showInactive}
+                onCheckedChange={setShowInactive}
+                id="show-inactive"
+              />
+              <Label htmlFor="show-inactive" className="text-sm font-normal">
+                Show Inactive
+              </Label>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           <Table>
@@ -253,7 +271,8 @@ export function Pricing() {
                 <TableHead>Package Name</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Details</TableHead>
+                <TableHead>Condition / Contract</TableHead>
+                <TableHead>Pricing Details</TableHead>
                 <TableHead>Discount</TableHead>
                 <TableHead></TableHead>
               </TableRow>
@@ -261,7 +280,9 @@ export function Pricing() {
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={6} className="text-center">Loading...</TableCell></TableRow>
-              ) : packages.map((pkg) => {
+              ) : packages
+                  .filter(pkg => showInactive || pkg.is_active !== false)
+                  .map((pkg) => {
                 // The API join returns products as 'products' property which is an object or array?
                 // In api/products.ts: .select('*, products(brand, model, type)') -> returns logic is products: {brand...} object (single) because product_id is singular relation
                 const product = (pkg as any).products;
@@ -274,7 +295,12 @@ export function Pricing() {
                     setEditingId(pkg.id);
                     setIsDialogOpen(true);
                   }}>
-                    <TableCell className="font-medium">{pkg.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {pkg.name}
+                        {pkg.is_active === false && <Badge variant="secondary">Inactive</Badge>}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {product ? (
                         <div className="flex items-center gap-2">
@@ -284,23 +310,31 @@ export function Pricing() {
                       ) : '-'}
                     </TableCell>
                     <TableCell><Badge variant="outline">{getStatusLabel(pkg.pricing_type)}</Badge></TableCell>
+                    <TableCell>
+                      <div>{pkg.machine_condition || 'เครื่องใหม่'}</div>
+                      <div className="text-sm text-gray-500">{pkg.contract_period || 36} เดือน</div>
+                    </TableCell>
                     <TableCell className="text-sm">
+                      {pkg.pricing_type === 'rental' && (
+                        <div>ค่าเช่า: {formatCurrency(pkg.base_monthly_fee || 0)}</div>
+                      )}
                       {pkg.pricing_type === 'min_guarantee' && (
                         <>
-                          <div>Min: {pkg.min_guarantee_volume?.toLocaleString()} pgs</div>
-                          <div className="text-xs text-gray-500">Exc: {pkg.click_rate_black}B / {pkg.click_rate_color}C</div>
+                          <div>ขั้นต่ำ: B {pkg.min_guarantee_volume?.toLocaleString()} / C {pkg.min_guarantee_volume?.toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">อัตรา: B {pkg.click_rate_black} บ. / C {pkg.click_rate_color} บ.</div>
                         </>
                       )}
                       {pkg.pricing_type === 'rental_click' && (
                         <>
-                          <div>Rental: {formatCurrency(pkg.base_monthly_fee || 0)}</div>
-                          <div className="text-xs text-gray-500">Clk: {pkg.click_rate_black}B / {pkg.click_rate_color}C</div>
+                          <div>ค่าเช่า: {formatCurrency(pkg.base_monthly_fee || 0)}</div>
+                          <div className="text-xs text-gray-500">อัตรา: B {pkg.click_rate_black} บ. / C {pkg.click_rate_color} บ.</div>
                         </>
                       )}
                       {(pkg.pricing_type === 'package_paper' || pkg.pricing_type === 'package_no_paper') && (
                         <>
-                          <div>Fee: {formatCurrency(pkg.base_monthly_fee || 0)}</div>
-                          <div className="text-xs text-gray-500">Free: {pkg.free_volume_black?.toLocaleString()}B</div>
+                          <div>ค่าแพ็กเกจ: {formatCurrency(pkg.base_monthly_fee || 0)}</div>
+                          <div className="text-xs text-gray-500">ฟรี: B {pkg.free_volume_black?.toLocaleString()} / C {pkg.free_volume_color?.toLocaleString()}</div>
+                          <div className="text-xs text-gray-500">ส่วนเกิน: B {pkg.excess_rate_black} บ. / C {pkg.excess_rate_color} บ.</div>
                         </>
                       )}
                     </TableCell>
@@ -343,6 +377,14 @@ export function Pricing() {
               </div>
             </div>
 
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={formData.is_active ?? true}
+                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+              />
+              <Label>Active Status</Label>
+            </div>
+
             <div className="space-y-2">
               <Label>Pricing Type</Label>
               <Select value={formData.pricing_type} onValueChange={(v: any) => setFormData({ ...formData, pricing_type: v })}>
@@ -350,12 +392,28 @@ export function Pricing() {
                 <SelectContent>
                   <SelectItem value="actual_usage">คิดตามจริง</SelectItem>
                   <SelectItem value="rental">คิดค่าเช่า</SelectItem>
-                  <SelectItem value="rental_click">ค่าเช่า + Click</SelectItem>
                   <SelectItem value="package_paper">เหมาจ่าย (รวมกระดาษ)</SelectItem>
                   <SelectItem value="package_no_paper">เหมาจ่าย (ไม่รวมกระดาษ)</SelectItem>
                   <SelectItem value="min_guarantee">ขั้นต่ำ</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>ประเภทเครื่อง (Machine Condition)</Label>
+                <Select value={formData.machine_condition || 'เครื่องใหม่'} onValueChange={v => setFormData({ ...formData, machine_condition: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="เครื่องใหม่">เครื่องใหม่</SelectItem>
+                    <SelectItem value="เครื่องพร้อมใช้">เครื่องพร้อมใช้</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>ระยะเวลาสัญญา (เดือน)</Label>
+                <Input type="number" required value={formData.contract_period ?? 36} onChange={e => setFormData({ ...formData, contract_period: Number(e.target.value) })} />
+              </div>
             </div>
 
             <div className="p-4 bg-gray-50 rounded border">
@@ -364,12 +422,12 @@ export function Pricing() {
               {formData.pricing_type === 'actual_usage' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Click Rate Black</Label>
-                    <Input type="number" required step="0.01" value={formData.click_rate_black ?? ''} onChange={e => setFormData({ ...formData, click_rate_black: Number(e.target.value) })} />
+                    <Label>เลขมิเตอร์เริ่มต้น</Label>
+                    <Input type="number" required step="1" value={formData.click_rate_black ?? ''} onChange={e => setFormData({ ...formData, click_rate_black: Number(e.target.value) })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Click Rate Color</Label>
-                    <Input type="number" step="0.01" value={formData.click_rate_color ?? ''} onChange={e => setFormData({ ...formData, click_rate_color: Number(e.target.value) })} />
+                    <Label>เลขมิเตอร์สิ้นสุด</Label>
+                    <Input type="number" step="1" value={formData.click_rate_color ?? ''} onChange={e => setFormData({ ...formData, click_rate_color: Number(e.target.value) })} />
                   </div>
                 </div>
               )}
@@ -386,19 +444,19 @@ export function Pricing() {
               {formData.pricing_type === 'min_guarantee' && (
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Min. Volume (Pages)</Label>
+                    <Label>ขั้นต่ำขาวดำ (แผ่น/เดือน)</Label>
                     <Input type="number" required value={formData.min_guarantee_volume ?? ''} onChange={e => setFormData({ ...formData, min_guarantee_volume: Number(e.target.value) })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Min. Price (THB)</Label>
+                    <Label>ขั้นต่ำสี (แผ่น/เดือน)</Label>
                     <Input type="number" required value={formData.min_guarantee_price ?? ''} onChange={e => setFormData({ ...formData, min_guarantee_price: Number(e.target.value) })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Click Rate Black</Label>
+                    <Label>อัตราขาวดำ (บาท/แผ่น)</Label>
                     <Input type="number" required step="0.01" value={formData.click_rate_black ?? ''} onChange={e => setFormData({ ...formData, click_rate_black: Number(e.target.value) })} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Click Rate Color</Label>
+                    <Label>อัตราสี (บาท/แผ่น)</Label>
                     <Input type="number" step="0.01" value={formData.click_rate_color ?? ''} onChange={e => setFormData({ ...formData, click_rate_color: Number(e.target.value) })} />
                   </div>
                 </div>
